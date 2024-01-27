@@ -4,5 +4,6 @@ Customised Repository Viewer for git repos
 
 # Features
 
-1. Allows users to select branch to view
-2. Shows a commits of selected branch of the left hand side of window
+1. Users can select a repository
+2. Users can select a branch within the selected repository
+3. Commits of the selected branch are shown on the left
