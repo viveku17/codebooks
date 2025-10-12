@@ -1,2 +1,3 @@
 dash
 flake8
+GitPython

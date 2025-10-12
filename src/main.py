@@ -1,6 +1,7 @@
 import requests
-from dash import Dash, dcc, html, Input, Output, callback, ctx, State
+from dash import Dash, dcc, html, Input, Output, callback, State
 from src import os_service 
+from src import layout_builder
 
 
 JS_LIST = [
@@ -25,117 +26,10 @@ app = Dash(__name__,
            external_stylesheets=CSS_LIST)
 
 
-def build_title():
-    return html.H1(children="CodeBooks", className="text-primary")
-
-
-def build_selection():
-    return html.Div(
-        children=[
-            html.H3(children="Selection"),
-            build_selection_select_repo(),
-            build_selection_clone_repo(),
-            build_selection_select_branch(),
-            build_selection_checkout_branch()
-        ],
-        className="p-3"
-    )
-
-
-def build_selection_select_repo():
-    return html.Div(
-        children=[
-            html.Div(
-                children=[
-                    dcc.Input(id="select_repo", type="url", placeholder="url to git repo",
-                              className="form-control w-100"),
-                ],
-                className="col"
-            ),
-            html.Div(
-                children=[
-                    dcc.Input(id="select_repo_status", type="text", readOnly=True, 
-                              className="input-group-text bg-danger form-inline w-100"),
-                ],
-                className="col"
-            )
-        ],
-        className="row mt-2"
-    )
-
-def build_selection_clone_repo():
-    return html.Div(
-        children=[
-            html.Div(
-                children=[
-                    html.Button('Clone Repo', id='btn_clone_repo', className="btn btn-primary w-100")
-                ],
-                className="col"
-            ),
-            html.Div(
-                children=[
-                    dcc.Input(id="clone_repo_status", type="text", readOnly=True, 
-                              className="input-group-text bg-danger form-inline w-100"),
-                ],
-                className="col"
-            )
-        ],
-        className="row mt-2"
-    )
-
-
-def build_selection_select_branch():
-    return html.Div(
-        children=[
-            html.Div(
-                children=[
-                    dcc.Dropdown(["main"], "main", id="select_branch"),
-                ],
-                className="col"
-            ),
-            html.Div(
-                children=[
-                    html.Div(
-                        children=[
-                            html.Span(children=["Select Branch Filter"], className="input-group-text")
-                        ],
-                        className="input-group-prepend col w-25"
-                    ),
-                    dcc.Input(id="select_branch_filter", type="text", placeholder="", 
-                              className="form-control w-75"),
-                ],
-                className="input-group col"
-            )
-        ],
-        className="row mt-2"
-    )
-
-
-def build_selection_checkout_branch():
-    return html.Div(
-        children=[
-            html.Div(
-                children=[
-                    html.Button('Checkout Branch', id='btn_checkout_branch', className="btn btn-primary w-100")
-                ],
-                className="col"
-            ),
-            html.Div(
-                children=[
-                    dcc.Input(id="checkout_branch_status", type="text", readOnly=True, 
-                              className="input-group-text bg-danger form-inline w-100"),
-                ],
-                className="col"
-            )
-        ],
-        className="row mt-2"
-    )
-
-
 app.layout = html.Div(
     children=[
-        build_title(),
-        build_selection(),
+        layout_builder.build_title(),
+        layout_builder.build_selection(),
         html.Div(
             children=[
                 html.H3(children="Status")
@@ -170,18 +64,85 @@ app.layout = html.Div(
 )
 
 
+# ==========================
+# Callbacks
+# ==========================
+
+
 @callback(
     Output("select_repo_status", "value"),
     Output("select_repo_status", "className"),
     Input("select_repo", "value"),
 )
-def update_repo_selection_status(select_repo_url):
+def select_repo_action(select_repo_url):
     select_repo_status_value = f"git repo is invalid"
     select_repo_status_class = "input-group-text form-inline w-100 bg-danger"
     if is_valid_git_repo(str(select_repo_url)):
         select_repo_status_value =  "git repo is valid"
         select_repo_status_class = "input-group-text form-inline w-100 bg-success"
     return select_repo_status_value, select_repo_status_class
+
+
+@callback(
+    Output('clone_repo_status', 'value'),
+    Output('clone_repo_status', 'className'),
+    Output('select_branch', 'options'),
+    Input('btn_clone_repo', 'n_clicks'),
+    State('select_repo', 'value'),    
+    prevent_initial_call=True
+)
+def clone_repo_action(btn_clone_repo_clicks, select_repo_url):
+    clone_repo_status_value = "git repo was not cloned correctly"
+    clone_repo_status_class = "input-group-text bg-danger form-inline w-100"
+    select_branch_options = []
+    if is_valid_git_repo(str(select_repo_url)):
+        result = os_service.clone_repo(select_repo_url)
+        if result:
+            clone_repo_status_value = "git repo was cloned correctly"
+            clone_repo_status_class = "input-group-text bg-success form-inline w-100"
+            select_branch_options = os_service.get_active_repo_branches()
+    return clone_repo_status_value, clone_repo_status_class, select_branch_options
+
+
+@callback(
+    Output('select_branch', 'value'),
+    Output('select_branch', 'options', allow_duplicate=True),
+    Input('select_branch_filter', 'value'),
+    prevent_initial_call=True,
+)
+def select_branch_filter_action(select_branch_filter_value):
+    branch_filter = select_branch_filter_value.strip().lower()
+    branches = os_service.get_active_repo_branches()
+    select_branch_value = ""
+    select_branch_options = [option for option in branches if option.lower().startswith(branch_filter)]
+    if select_branch_options:
+         select_branch_value = select_branch_options[0]
+    return select_branch_value, select_branch_options
+
+
+@callback(
+    Output('checkout_branch_status', 'value'),
+    Output('checkout_branch_status', 'className'),
+    Input('btn_checkout_branch', 'n_clicks'),
+)
+def checkout_branch_action(btn_checkout_branch_clicks):
+    pass
+    # clone_repo_status_value = "git repo was not cloned correctly"
+    # clone_repo_status_class = "input-group-text bg-danger form-inline w-100"
+    # select_branch_options = []
+    # if is_valid_git_repo(str(select_repo_url)):
+    #     result = os_service.clone_repo(select_repo_url)
+    #     if result:
+    #         clone_repo_status_value = "git repo was cloned correctly"
+    #         clone_repo_status_class = "input-group-text bg-success form-inline w-100"
+    #         select_branch_options = os_service.get_active_repo_branches()
+    # return clone_repo_status_value, clone_repo_status_class, select_branch_options
+
+
+
+# ==========================
+# Private Methods
+# ==========================
 
 
 def is_valid_git_repo(url):
@@ -194,13 +155,3 @@ def is_valid_git_repo(url):
             pass
     return False        
 
-
-@callback(
-    Output('clone_repo_status', 'value'),
-    Input('btn_clone_repo', 'n_clicks'),
-    State('select_repo', 'value'),    
-    prevent_initial_call=True
-)
-def clone_repo_and_update_status(btn_clone_repo_clicks, select_repo_url):
-    if is_valid_git_repo(str(select_repo_url)):
-        os_service.clone_repo(select_repo_url)
