@@ -1,3 +1,4 @@
 dash
 flake8
-GitPython
+pytest
+coverage
